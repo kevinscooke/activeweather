@@ -3,8 +3,8 @@ import Link from "next/link";
 import Header from "./components/header";
 
 export const metadata: Metadata = {
-  title: "Active Fly Fishing | North Carolina Weather Dashboard",
-  description: "Discover expert tips, gear guides, and destination spotlights tailored for anglers who never stop exploring.",
+  title: "Real-Time Trout Conditions for North Carolina | Active Fly Fishing",
+  description: "Live flows, water temps, wind, and 7–90 day trends—plus access notes and seasonal hatches for every major trout stream.",
 };
 
 export default function Home() {
@@ -16,20 +16,34 @@ export default function Home() {
       <main className="flex flex-1 flex-col items-center justify-center px-6 py-12 text-center text-slate-100 sm:py-16">
         <div className="mx-auto w-full max-w-4xl space-y-8">
           <div className="space-y-4">
-            <h2 className="text-4xl font-bold sm:text-5xl lg:text-6xl">
-              Active Fly Fishing
-            </h2>
-            <p className="mx-auto max-w-xl text-lg text-slate-300 sm:text-xl">
-              Discover expert tips, gear guides, and destination spotlights tailored for anglers who never stop exploring.
+            <h1 className="text-4xl font-bold sm:text-5xl lg:text-6xl">
+              Real-Time Trout Conditions for North Carolina
+            </h1>
+            <p className="mx-auto max-w-2xl text-lg text-slate-300 sm:text-xl">
+              Live flows, water temps, wind, and 7–90 day trends—plus access notes and seasonal hatches for every major trout stream.
             </p>
           </div>
 
-          <Link
-            href="/ararat-river-weather-river-gauge"
-            className="inline-block rounded-full bg-emerald-500 px-8 py-4 text-base font-semibold text-slate-900 transition hover:bg-emerald-400 sm:text-lg"
-          >
-            View Weather Dashboard
-          </Link>
+          <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+            <Link
+              href="/ararat-river-weather-river-gauge"
+              className="inline-block rounded-full bg-emerald-500 px-8 py-4 text-base font-semibold text-slate-900 transition hover:bg-emerald-400 sm:text-lg"
+            >
+              View NC Rivers
+            </Link>
+            <Link
+              href="#"
+              className="inline-block rounded-full border-2 border-emerald-500 bg-transparent px-8 py-4 text-base font-semibold text-emerald-500 transition hover:bg-emerald-500/10 sm:text-lg"
+            >
+              Set Flow/Temp Alerts
+            </Link>
+            <Link
+              href="#"
+              className="inline-block rounded-full border-2 border-emerald-500 bg-transparent px-8 py-4 text-base font-semibold text-emerald-500 transition hover:bg-emerald-500/10 sm:text-lg"
+            >
+              Learn How to Read Gauges
+            </Link>
+          </div>
 
           {/* Fly Fishing North Carolina Content Section */}
           <section className="mt-16 rounded-3xl bg-white/10 px-5 py-6 backdrop-blur-sm sm:px-8 sm:py-10">

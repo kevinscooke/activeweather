@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
 import type { ChartData, ChartOptions, TooltipItem } from "chart.js";
 import {
@@ -141,6 +142,44 @@ const riverGageSiteByLocation: Partial<
   "west-fork-pigeon-river": "0345577330",
 };
 
+// Map location IDs to city names for H1 and metadata
+const cityByLocation: Partial<
+  Record<(typeof locations)[number]["id"], string>
+> = {
+  "ararat-river": "Mount Airy",
+  "wilson-creek": "Grandfather Mountain",
+  "big-horse-creek": "Ashe County",
+  "big-laurel-creek": "Madison County",
+  "big-snowbird": "Robbinsville",
+  "cane-creek": "Fletcher",
+  "cane-river": "Yancey",
+  "catawba-river": "Lake James",
+  "curtis-creek": "Pisgah Forest",
+  "davidson-river": "Brevard",
+  "east-fork-french-broad-river": "Rosman",
+  "east-prong-roaring-river": "Stone Mountain",
+  "elk-creek": "Wilkes County",
+  "elk-river": "Banner Elk",
+  "fires-creek": "Hayesville",
+  "green-river": "Saluda",
+  "helton-creek": "Ashe County",
+  "jacobs-fork": "Morganton",
+  "little-river": "DuPont State Forest",
+  "mill-creek": "Old Fort",
+  "mitchell-river": "Surry County",
+  "nantahala-river": "Bryson City",
+  "north-fork-mills-river": "Mills River",
+  "north-toe-river": "Spruce Pine",
+  "reddies-river": "Wilkes County",
+  "shelton-laurel-creek": "Madison County",
+  "south-fork-new-river": "Boone",
+  "spring-creek": "Hot Springs",
+  "stone-mountain-creek": "Stone Mountain",
+  "tuckasegee-river": "Bryson City",
+  "watauga-river": "Boone",
+  "west-fork-pigeon-river": "Canton",
+};
+
 export const LOCATION_PATH_SUFFIX = "-weather-river-gauge";
 const DEFAULT_LOCATION = locations[0] as WeatherLocation;
 
@@ -162,6 +201,43 @@ const getLocationFromPathname = (pathname: string | null | undefined) => {
 
 const buildLocationPathname = (locationId: WeatherLocation["id"]) =>
   `/${locationId}${LOCATION_PATH_SUFFIX}`;
+
+const buildUSGSStationUrl = (siteId: string) =>
+  `https://waterdata.usgs.gov/monitoring-location/${siteId}/`;
+
+const findNearbyGauges = (
+  currentLocationId: string,
+  allLocations: WeatherLocation[],
+  gaugeMap: Partial<Record<string, string>>,
+  maxResults = 3,
+): WeatherLocation[] => {
+  const currentLocation = allLocations.find((loc) => loc.id === currentLocationId);
+  if (!currentLocation) return [];
+
+  const currentCoords = locationCoordinates[currentLocationId];
+  if (!currentCoords) return [];
+
+  // Find other locations with gauges
+  const locationsWithGauges = allLocations
+    .filter((loc) => loc.id !== currentLocationId && gaugeMap[loc.id])
+    .map((loc) => {
+      const coords = locationCoordinates[loc.id];
+      if (!coords) return null;
+
+      // Simple distance calculation (Haversine approximation)
+      const latDiff = coords.latitude - currentCoords.latitude;
+      const lonDiff = coords.longitude - currentCoords.longitude;
+      const distance = Math.sqrt(latDiff * latDiff + lonDiff * lonDiff);
+
+      return { location: loc, distance };
+    })
+    .filter((item): item is { location: WeatherLocation; distance: number } => item !== null)
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, maxResults)
+    .map((item) => item.location);
+
+  return locationsWithGauges;
+};
 
 const weatherCodeDescriptions: Record<number, string> = {
   0: "Clear sky",
@@ -316,6 +392,10 @@ export default function WeatherPage() {
   >([]);
   const [isLoadingRiver, setIsLoadingRiver] = useState(false);
   const [riverError, setRiverError] = useState<string | null>(null);
+  const [lastKnownReading, setLastKnownReading] = useState<{
+    value: number;
+    timestamp: Date;
+  } | null>(null);
   const [upcomingForecast, setUpcomingForecast] = useState<UpcomingDay[]>([]);
 
   const filteredLocations = useMemo(() => {
@@ -362,9 +442,14 @@ export default function WeatherPage() {
     let cancelled = false;
     const controller = new AbortController();
 
+    // Clear last known reading when location changes
+    setLastKnownReading(null);
+    setRiverError(null);
+
     if (!siteId) {
       setRiverReadings([]);
       setRiverError("River gauge data is unavailable for this location.");
+      setIsLoadingRiver(false);
       return () => {
         cancelled = true;
         controller.abort();
@@ -407,12 +492,20 @@ export default function WeatherPage() {
 
         if (!cancelled) {
           setRiverReadings(parsedReadings);
+          // Store the latest reading as last known
+          if (parsedReadings.length > 0) {
+            const latest = parsedReadings[parsedReadings.length - 1];
+            setLastKnownReading({
+              value: latest.value,
+              timestamp: latest.timestamp,
+            });
+          }
           setIsLoadingRiver(false);
         }
       } catch (error) {
         if (cancelled) return;
         console.error("Failed to load river data", error);
-        setRiverReadings([]);
+        // Don't clear readings on error - keep last known data visible
         setRiverError(
           error instanceof Error
             ? error.message
@@ -684,6 +777,28 @@ export default function WeatherPage() {
     });
   }, [weather?.observationTime]);
 
+  const riverTooltipFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        timeZoneName: "short",
+      }),
+    [],
+  );
+
+  const latestRiverReading = useMemo(() => {
+    if (!riverReadings.length) return null;
+    const latest = riverReadings[riverReadings.length - 1];
+    return {
+      value: latest.value,
+      timestampLabel: riverTooltipFormatter.format(latest.timestamp),
+    };
+  }, [riverReadings, riverTooltipFormatter]);
+
   const metricsCards = useMemo(() => {
     const fallbackValue = isLoadingWeather ? "…" : "--";
     const fallbackSub = isLoadingWeather ? "Updating…" : "Unavailable";
@@ -711,12 +826,44 @@ export default function WeatherPage() {
         ? `${Math.round(weather.humidityPercent)}%`
         : fallbackValue;
 
-    const formattedFeelsLike =
-      weather?.temperatureF != null
-        ? `${Math.round(weather.temperatureF)}°F`
+    const formattedPrecipitation =
+      weather?.precipitationIn != null
+        ? `${weather.precipitationIn.toFixed(2)} in`
         : fallbackValue;
 
+    const formattedStage =
+      latestRiverReading != null
+        ? `${latestRiverReading.value.toFixed(2)} ft`
+        : isLoadingRiver
+        ? "…"
+        : "--";
+
     return [
+      {
+        key: "flow-stage",
+        label: "River Stage",
+        value: formattedStage,
+        sublabel: latestRiverReading
+          ? `Latest reading`
+          : isLoadingRiver
+          ? "Loading…"
+          : "No gauge data",
+        icon: (
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            className="h-5 w-5 text-sky-500"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M3 14s2.5-4 6-4 6 4 10 4 5-4 5-4"
+            />
+          </svg>
+        ),
+      },
       {
         key: "wind-speed",
         label: "Wind Speed",
@@ -725,11 +872,25 @@ export default function WeatherPage() {
         icon: statCardIcons.windSpeed,
       },
       {
-        key: "wind-direction",
-        label: "Wind Direction",
-        value: windDirectionLabel ?? fallbackValue,
-        sublabel: windDirectionSub,
-        icon: statCardIcons.windDirection,
+        key: "precipitation",
+        label: "Precipitation",
+        value: formattedPrecipitation,
+        sublabel: "24h total",
+        icon: (
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            className="h-5 w-5 text-sky-500"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 3v14.25m0-14.25L8.25 7M12 3l3.75 4M4.5 20.25h15"
+            />
+          </svg>
+        ),
       },
       {
         key: "humidity",
@@ -738,22 +899,16 @@ export default function WeatherPage() {
         sublabel: "Relative",
         icon: statCardIcons.humidity,
       },
-      {
-        key: "feels-like",
-        label: "Feels Like",
-        value: formattedFeelsLike,
-        sublabel: weather?.weatherDescription ?? fallbackSub,
-        icon: statCardIcons.temperature,
-      },
     ];
   }, [
     isLoadingWeather,
+    isLoadingRiver,
     weather?.humidityPercent,
     weather?.windDirectionCardinal,
     weather?.windDirectionDegrees,
     weather?.windSpeedMph,
-    weather?.weatherDescription,
-    weather?.temperatureF,
+    weather?.precipitationIn,
+    latestRiverReading,
   ]);
 
   const upcomingDayFormatter = useMemo(
@@ -796,27 +951,33 @@ export default function WeatherPage() {
     [],
   );
 
-  const riverTooltipFormatter = useMemo(
-    () =>
-      new Intl.DateTimeFormat("en-US", {
-        timeZone: "America/New_York",
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-        timeZoneName: "short",
-      }),
-    [],
+  const currentSiteId = useMemo(
+    () => riverGageSiteByLocation[selectedLocation.id],
+    [selectedLocation.id],
   );
 
-  const latestRiverReading = useMemo(() => {
-    if (!riverReadings.length) return null;
-    const latest = riverReadings[riverReadings.length - 1];
-    return {
-      value: latest.value,
-      timestampLabel: riverTooltipFormatter.format(latest.timestamp),
-    };
-  }, [riverReadings, riverTooltipFormatter]);
+  const nearbyGauges = useMemo(() => {
+    // Show nearby gauges if current location has no gauge OR if there's an error
+    if (!currentSiteId || riverError) {
+      return findNearbyGauges(
+        selectedLocation.id,
+        locations,
+        riverGageSiteByLocation,
+        3,
+      );
+    }
+    return [];
+  }, [selectedLocation.id, currentSiteId, riverError]);
+
+  const cityName = useMemo(
+    () => cityByLocation[selectedLocation.id] ?? selectedLocation.region,
+    [selectedLocation.id],
+  );
+
+  const h1Title = useMemo(
+    () => `${selectedLocation.name} Flow & Fly Fishing Conditions (${cityName}, NC)`,
+    [selectedLocation.name, cityName],
+  );
 
   const riverChartData = useMemo<ChartData<"line">>(() => {
     return {
@@ -1061,12 +1222,48 @@ export default function WeatherPage() {
       <main className="flex-1 bg-linear-to-b from-sky-100 via-sky-50 to-white px-4 py-5 text-slate-900 sm:px-6 lg:px-8">
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 sm:gap-8">
           <h1 className="text-3xl font-semibold text-slate-900 sm:text-4xl">
-            {selectedLocation.name}
+            {h1Title}
           </h1>
 
           <p className="max-w-3xl text-sm text-slate-600 sm:text-base">
             {selectedLocation.description}
           </p>
+
+          {/* Internal Linking System */}
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <span className="text-slate-500">Related:</span>
+            <Link
+              href="/"
+              className="font-medium text-sky-600 hover:text-sky-700 underline"
+            >
+              Fly Fishing North Carolina
+            </Link>
+            {nearbyGauges.length > 0 && (
+              <>
+                <span className="text-slate-400">•</span>
+                <span className="text-slate-500">Nearby rivers:</span>
+                {nearbyGauges.slice(0, 3).map((location, index) => (
+                  <span key={location.id}>
+                    {index > 0 && <span className="text-slate-400">, </span>}
+                    <button
+                      onClick={() => handleLocationSelect(location.id)}
+                      className="font-medium text-sky-600 hover:text-sky-700 underline"
+                    >
+                      {location.name}
+                    </button>
+                  </span>
+                ))}
+              </>
+            )}
+            {/* Placeholder for future explainer links */}
+            {/* <span className="text-slate-400">•</span>
+            <Link
+              href="/how-to-read-gauges"
+              className="font-medium text-sky-600 hover:text-sky-700 underline"
+            >
+              How to Read Gauges
+            </Link> */}
+          </div>
 
           <div className="flex flex-col items-center gap-2 sm:hidden">
             <p className="text-xs font-medium text-slate-500">Powered by:</p>
@@ -1226,19 +1423,141 @@ export default function WeatherPage() {
                 <div className="flex h-96 items-center justify-center rounded-2xl bg-slate-100 text-sm text-slate-400 sm:h-[28rem]">
                   Loading gage height…
                 </div>
-              ) : riverError ? (
-                <div className="flex h-96 items-center justify-center rounded-2xl bg-slate-100 text-sm text-rose-500 sm:h-[28rem]">
-                  {riverError}
+              ) : riverError || !riverReadings.length ? (
+                <div className="flex h-96 flex-col items-center justify-center gap-4 rounded-2xl bg-slate-50 px-4 py-6 text-center sm:h-[28rem] sm:px-6">
+                  {lastKnownReading ? (
+                    <div className="flex flex-col gap-2">
+                      <p className="text-sm font-medium text-slate-600">
+                        Last known reading
+                      </p>
+                      <p className="text-2xl font-semibold text-slate-900">
+                        {lastKnownReading.value.toFixed(2)} ft
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {riverTooltipFormatter.format(lastKnownReading.timestamp)}
+                      </p>
+                      {currentSiteId && (
+                        <a
+                          href={buildUSGSStationUrl(currentSiteId)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-2 inline-flex items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-sky-700"
+                        >
+                          <svg
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            className="h-4 w-4"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M4.25 5.5a.75.75 0 00-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 00.75-.75v-4a.75.75 0 011.5 0v4A2.25 2.25 0 0112.75 17h-8.5A2.25 2.25 0 012 14.75v-8.5A2.25 2.25 0 014.25 4h5a.75.75 0 010 1.5h-5z"
+                              clipRule="evenodd"
+                            />
+                            <path
+                              fillRule="evenodd"
+                              d="M6.194 12.753a.75.75 0 001.06.053L16.5 4.44v2.81a.75.75 0 001.5 0V2.5a.75.75 0 00-.75-.75h-4.75a.75.75 0 000 1.5h2.553l-9.056 8.194a.75.75 0 00-.053 1.06z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                          View on USGS
+                        </a>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      <p className="text-sm font-medium text-slate-600">
+                        {riverError || "No river readings available"}
+                      </p>
+                      {currentSiteId ? (
+                        <a
+                          href={buildUSGSStationUrl(currentSiteId)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-2 inline-flex items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-sky-700"
+                        >
+                          <svg
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            className="h-4 w-4"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M4.25 5.5a.75.75 0 00-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 00.75-.75v-4a.75.75 0 011.5 0v4A2.25 2.25 0 0112.75 17h-8.5A2.25 2.25 0 012 14.75v-8.5A2.25 2.25 0 014.25 4h5a.75.75 0 010 1.5h-5z"
+                              clipRule="evenodd"
+                            />
+                            <path
+                              fillRule="evenodd"
+                              d="M6.194 12.753a.75.75 0 001.06.053L16.5 4.44v2.81a.75.75 0 001.5 0V2.5a.75.75 0 00-.75-.75h-4.75a.75.75 0 000 1.5h2.553l-9.056 8.194a.75.75 0 00-.053 1.06z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                          View on USGS
+                        </a>
+                      ) : null}
+                    </div>
+                  )}
+                  {nearbyGauges.length > 0 && (
+                    <div className="mt-4 flex flex-col gap-2">
+                      <p className="text-xs font-medium text-slate-500">
+                        Nearby rivers with gauges:
+                      </p>
+                      <div className="flex flex-wrap justify-center gap-2">
+                        {nearbyGauges.map((location) => (
+                          <button
+                            key={location.id}
+                            onClick={() => handleLocationSelect(location.id)}
+                            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 hover:border-sky-300"
+                          >
+                            {location.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ) : riverReadings.length ? (
+              ) : (
                 <div className="h-96 w-full sm:h-[28rem] rounded-xl overflow-hidden bg-gradient-to-br from-white via-white to-slate-50/30 shadow-inner">
                   <Line options={riverChartOptions} data={riverChartData} />
                 </div>
-              ) : (
-                <div className="flex h-96 items-center justify-center rounded-2xl bg-slate-100 text-sm text-slate-400 sm:h-[28rem]">
-                  No river readings available.
-                </div>
               )}
+            </div>
+            {/* Data Sources Footnote */}
+            <div className="mt-4 border-t border-slate-200 pt-4">
+              <p className="text-xs text-slate-500">
+                <span className="font-medium">Data sources:</span> River gauge data from{" "}
+                <a
+                  href="https://dashboard.waterdata.usgs.gov/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-sky-600 hover:text-sky-700 underline"
+                >
+                  USGS National Water Dashboard
+                </a>
+                {currentSiteId && (
+                  <>
+                    {" "}
+                    (Station {currentSiteId}
+                    {lastKnownReading && (
+                      <>
+                        {" "}
+                        • Last updated{" "}
+                        {riverTooltipFormatter.format(lastKnownReading.timestamp)}
+                      </>
+                    )}
+                    )
+                  </>
+                )}
+                . Weather data from{" "}
+                <a
+                  href="https://open-meteo.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-sky-600 hover:text-sky-700 underline"
+                >
+                  Open-Meteo
+                </a>
+                .
+              </p>
             </div>
           </div>
         </section>
