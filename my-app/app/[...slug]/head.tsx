@@ -1,2 +1,2 @@
-export { default } from "../weather/head";
+export { default } from "../components/weather/head";
 

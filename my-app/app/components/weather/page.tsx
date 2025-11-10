@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import Image from "next/image";
 import type { ChartData, ChartOptions, TooltipItem } from "chart.js";
 import {
   Chart as ChartJS,
@@ -16,6 +17,7 @@ import {
 import "chartjs-adapter-date-fns";
 import { Line } from "react-chartjs-2";
 import { fetchWeatherApi } from "openmeteo";
+import Header from "../header";
 import locations, { type WeatherLocation } from "./locations";
 
 const statCardIcons = {
@@ -989,339 +991,32 @@ export default function WeatherPage() {
   };
 
   return (
-    <main className="min-h-screen bg-linear-to-b from-sky-100 via-sky-50 to-white px-4 py-5 text-slate-900 sm:px-6 lg:px-8">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 sm:gap-8">
-        <header className="flex w-full flex-col gap-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-2xl font-semibold text-slate-900 sm:text-3xl">
-              Active Fly Fishing
-            </h2>
-            <div className="hidden items-center gap-3 sm:flex">
-              <div ref={menuRef} className="relative">
-                <button
-                  type="button"
-                  onClick={handleDesktopToggle}
-                  aria-haspopup="listbox"
-                  aria-expanded={isMenuOpen}
-                  className="flex items-center gap-3 rounded-full bg-white/85 px-4 py-2 text-sm font-medium text-slate-600 shadow-sm ring-1 ring-white/60 backdrop-blur transition hover:text-slate-900"
-                >
-                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-sky-100 text-sky-500">
-                    <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2a1 1 0 00.293.707l1.5 1.5a1 1 0 001.414-1.414L11 8.586V7z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </span>
-                  <span className="text-left leading-tight">
-                    <span className="block text-xs uppercase tracking-wide text-slate-400">
-                      {selectedLocation.name}
-                    </span>
-                    <span className="block text-sm font-semibold text-slate-700">
-                      {selectedLocation.region}
-                    </span>
-                  </span>
-                  <svg
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    className="h-4 w-4 text-slate-400"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M5.23 7.21a.75.75 0 011.06.02L10 11.108l3.71-3.877a.75.75 0 111.08 1.04l-4.25 4.45a.75.75 0 01-1.08 0l-4.25-4.45a.75.75 0 01.02-1.06z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </button>
+    <div className="flex min-h-screen flex-col bg-slate-900">
+      <Header selectedLocation={selectedLocation} />
 
-                {isMenuOpen ? (
-                  <div className="absolute right-0 top-full z-20 mt-3 w-md rounded-3xl bg-white/98 p-4 text-sm text-slate-600 shadow-2xl ring-1 ring-slate-100 backdrop-blur">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                          Select Location
-                        </p>
-                        <p className="text-xs text-slate-400">
-                          {resultsCount} {resultsCount === 1 ? "option" : "options"}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleMenuClose}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-                        aria-label="Close location menu"
-                      >
-                        <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
-                          <path
-                            fillRule="evenodd"
-                            d="M10 8.586l4.243-4.243a1 1 0 111.414 1.414L11.414 10l4.243 4.243a1 1 0 01-1.414 1.414L10 11.414l-4.243 4.243a1 1 0 01-1.414-1.414L8.586 10 4.343 5.757a1 1 0 011.414-1.414L10 8.586z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </button>
-                    </div>
+      <main className="flex-1 bg-linear-to-b from-sky-100 via-sky-50 to-white px-4 py-5 text-slate-900 sm:px-6 lg:px-8">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 sm:gap-8">
+          <h1 className="text-3xl font-semibold text-slate-900 sm:text-4xl">
+            {selectedLocation.name}
+          </h1>
 
-                    <div className="mt-3">
-                      <label htmlFor="desktop-location-search" className="sr-only">
-                        Search locations
-                      </label>
-                      <div className="relative">
-                        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-300">
-                          <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                            <path
-                              fillRule="evenodd"
-                              d="M12.9 14.32a7 7 0 111.414-1.414l3.147 3.146a1 1 0 01-1.414 1.415L12.9 14.32zM14 9a5 5 0 11-10 0 5 5 0 0110 0z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        </span>
-                        <input
-                          ref={desktopSearchRef}
-                          id="desktop-location-search"
-                          type="search"
-                          value={searchTerm}
-                          onChange={(event) => setSearchTerm(event.target.value)}
-                          placeholder="Search rivers or counties"
-                          className="w-full rounded-2xl border border-slate-200 bg-white/90 px-9 py-2 text-sm text-slate-600 shadow-inner focus:border-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                        />
-                      </div>
-                    </div>
+          <p className="max-w-3xl text-sm text-slate-600 sm:text-base">
+            {selectedLocation.description}
+          </p>
 
-                    <div className="mt-4 max-h-80 space-y-4 overflow-y-auto pr-1">
-                      {groupedLocations.length ? (
-                        groupedLocations.map((group) => (
-                          <div key={group.letter} className="space-y-2">
-                            <p className="px-1 text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                              {group.letter}
-                            </p>
-                            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                              {group.items.map((location) => {
-                                const isSelected = location.id === selectedLocation.id;
-                                const hasGauge = Boolean(
-                                  riverGageSiteByLocation[location.id],
-                                );
-                                return (
-                                  <button
-                                    key={location.id}
-                                    type="button"
-                                    onClick={() => handleLocationSelect(location.id)}
-                                    className={`flex w-full flex-col gap-2 rounded-2xl border px-3 py-3 text-left transition ${
-                                      isSelected
-                                        ? "border-sky-200 bg-sky-50/80 text-slate-900 shadow-sm"
-                                        : "border-transparent bg-white/85 text-slate-600 hover:border-slate-200 hover:bg-slate-50"
-                                    }`}
-                                  >
-                                    <span className="flex flex-col gap-1">
-                                      <span className="flex flex-wrap items-center gap-2 text-sm font-semibold">
-                                        {location.name}
-                                        {hasGauge ? (
-                                          <FlowGlyph className="h-3.5 w-6 text-sky-400" />
-                                        ) : null}
-                                      </span>
-                                      <span className="text-xs text-slate-400">
-                                        {location.region}
-                                      </span>
-                                    </span>
-                                    {isSelected ? (
-                                      <span className="inline-flex items-center gap-1 self-start rounded-full bg-sky-100/80 px-2 py-1 text-[0.65rem] font-medium uppercase tracking-[0.22em] text-sky-600">
-                                        <svg
-                                          viewBox="0 0 20 20"
-                                          fill="currentColor"
-                                          className="h-3 w-3"
-                                        >
-                                          <path
-                                            fillRule="evenodd"
-                                            d="M16.704 5.29a1 1 0 010 1.415l-7.07 7.07a1 1 0 01-1.415 0l-3.536-3.536a1 1 0 011.415-1.414L8.934 11.95l6.363-6.364a1 1 0 011.407-.296z"
-                                            clipRule="evenodd"
-                                          />
-                                        </svg>
-                                        Selected
-                                      </span>
-                                    ) : null}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-4 py-6 text-center text-sm text-slate-500">
-                          No locations match “{searchTerm}”.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
+          <div className="flex flex-col items-center gap-2 sm:hidden">
+            <p className="text-xs font-medium text-slate-500">Powered by:</p>
+            <div className="relative h-8 w-24">
+              <Image
+                src="https://ik.imagekit.io/gfi2amo6o/Jesse-Brown-s-Logo-White-e1730748119626.png"
+                alt="Jesse Brown's Charlotte, NC"
+                fill
+                className="object-contain"
+              />
             </div>
           </div>
 
-          <div className="flex flex-col gap-1 sm:hidden">
-            <span className="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-slate-400">
-              Select Location
-            </span>
-            <button
-              type="button"
-              onClick={handleMobileOpen}
-              className="flex w-full items-center justify-between rounded-2xl bg-white/85 px-4 py-3 text-left text-sm font-medium text-slate-700 shadow-sm ring-1 ring-white/60 backdrop-blur transition focus:outline-none focus:ring-2 focus:ring-sky-300"
-              aria-haspopup="dialog"
-              aria-expanded={isMobileMenuOpen}
-            >
-              <span className="flex flex-col">
-                <span className="text-xs uppercase tracking-wide text-slate-400">
-                  {selectedLocation.region}
-                </span>
-                <span className="text-sm font-semibold text-slate-700">
-                  {selectedLocation.name}
-                </span>
-              </span>
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-sky-100 text-sky-500">
-                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                  <path
-                    fillRule="evenodd"
-                    d="M5.23 7.21a.75.75 0 011.06.02L10 11.108l3.71-3.877a.75.75 0 111.08 1.04l-4.25 4.45a.75.75 0 01-1.08 0l-4.25-4.45a.75.75 0 01.02-1.06z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </span>
-            </button>
-          </div>
-
-          {isMobileMenuOpen ? (
-            <>
-              <div
-                className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm"
-                onClick={handleMenuClose}
-                aria-hidden="true"
-              />
-              <div className="fixed inset-0 z-50 flex flex-col bg-white">
-                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-4">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
-                      Select Location
-                    </p>
-                    <p className="text-sm text-slate-500">
-                      {resultsCount} {resultsCount === 1 ? "option" : "options"}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleMenuClose}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-                    aria-label="Close location picker"
-                  >
-                    <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
-                      <path
-                        fillRule="evenodd"
-                        d="M10 8.586l4.243-4.243a1 1 0 111.414 1.414L11.414 10l4.243 4.243a1 1 0 01-1.414 1.414L10 11.414l-4.243 4.243a1 1 0 01-1.414-1.414L8.586 10 4.343 5.757a1 1 0 011.414-1.414L10 8.586z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </button>
-                </div>
-                <div className="px-4 py-3">
-                  <label htmlFor="mobile-location-search" className="sr-only">
-                    Search locations
-                  </label>
-                  <div className="relative">
-                    <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-300">
-                      <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                        <path
-                          fillRule="evenodd"
-                          d="M12.9 14.32a7 7 0 111.414-1.414l3.147 3.146a1 1 0 01-1.414 1.415L12.9 14.32zM14 9a5 5 0 11-10 0 5 5 0 0110 0z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </span>
-                    <input
-                      ref={mobileSearchRef}
-                      id="mobile-location-search"
-                      type="search"
-                      value={searchTerm}
-                      onChange={(event) => setSearchTerm(event.target.value)}
-                      placeholder="Search rivers or counties"
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-10 py-3 text-sm text-slate-600 shadow-inner focus:border-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                    />
-                  </div>
-                </div>
-                <div className="flex flex-1 flex-col overflow-y-auto px-4 pb-6">
-                  {groupedLocations.length ? (
-                    groupedLocations.map((group) => (
-                      <div key={group.letter} className="space-y-2 py-2">
-                        <p className="px-1 text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                          {group.letter}
-                        </p>
-                        <div className="flex flex-col gap-2">
-                          {group.items.map((location) => {
-                            const isSelected = location.id === selectedLocation.id;
-                            const hasGauge = Boolean(
-                              riverGageSiteByLocation[location.id],
-                            );
-                            return (
-                              <button
-                                key={location.id}
-                                type="button"
-                                onClick={() => handleLocationSelect(location.id)}
-                                className={`flex flex-col gap-2 rounded-2xl border px-3 py-3 text-left text-sm transition ${
-                                  isSelected
-                                    ? "border-sky-200 bg-sky-50/80 text-slate-900 shadow-sm"
-                                    : "border-slate-100 bg-white text-slate-600 hover:border-slate-200 hover:bg-slate-50"
-                                }`}
-                              >
-                                <span className="flex flex-col gap-1">
-                                  <span className="flex flex-wrap items-center gap-2 text-sm font-semibold">
-                                    {location.name}
-                                    {hasGauge ? (
-                                      <FlowGlyph className="h-3.5 w-6 text-sky-400" />
-                                    ) : null}
-                                  </span>
-                                  <span className="text-xs text-slate-400">
-                                    {location.region}
-                                  </span>
-                                </span>
-                                {isSelected ? (
-                                  <span className="inline-flex items-center gap-1 self-start rounded-full bg-sky-100/80 px-2 py-1 text-[0.65rem] font-medium uppercase tracking-[0.22em] text-sky-600">
-                                    <svg
-                                      viewBox="0 0 20 20"
-                                      fill="currentColor"
-                                      className="h-3 w-3"
-                                    >
-                                      <path
-                                        fillRule="evenodd"
-                                        d="M16.704 5.29a1 1 0 010 1.415l-7.07 7.07a1 1 0 01-1.415 0l-3.536-3.536a1 1 0 011.415-1.414L8.934 11.95l6.363-6.364a1 1 0 011.407-.296z"
-                                        clipRule="evenodd"
-                                      />
-                                    </svg>
-                                    Selected
-                                  </span>
-                                ) : null}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-4 py-6 text-center text-sm text-slate-500">
-                      No locations match “{searchTerm}”.
-                    </div>
-                  )}
-                </div>
-              </div>
-            </>
-          ) : null}
-        </header>
-
-        <h1 className="text-3xl font-semibold text-slate-900 sm:text-4xl">
-          {selectedLocation.name}
-        </h1>
-
-        <p className="max-w-3xl text-sm text-slate-600 sm:text-base">
-          {selectedLocation.description}
-        </p>
-
-        <section className="grid gap-5 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)] lg:gap-7">
+        <section className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:gap-7">
           <div className="flex flex-col gap-4 sm:gap-5">
             <div className="rounded-3xl bg-white/90 px-5 py-5 shadow-sm ring-1 ring-white/60 backdrop-blur sm:px-6 sm:py-6">
               <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
@@ -1464,57 +1159,49 @@ export default function WeatherPage() {
             </div>
             <div className="mt-4">
               {isLoadingRiver ? (
-                <div className="flex h-72 items-center justify-center rounded-2xl bg-slate-100 text-sm text-slate-400 sm:h-80">
+                <div className="flex h-96 items-center justify-center rounded-2xl bg-slate-100 text-sm text-slate-400 sm:h-[28rem]">
                   Loading gage height…
                 </div>
               ) : riverError ? (
-                <div className="flex h-72 items-center justify-center rounded-2xl bg-slate-100 text-sm text-rose-500 sm:h-80">
+                <div className="flex h-96 items-center justify-center rounded-2xl bg-slate-100 text-sm text-rose-500 sm:h-[28rem]">
                   {riverError}
                 </div>
               ) : riverReadings.length ? (
-                <div className="h-72 w-full sm:h-80">
+                <div className="h-96 w-full sm:h-[28rem]">
                   <Line options={riverChartOptions} data={riverChartData} />
                 </div>
               ) : (
-                <div className="flex h-72 items-center justify-center rounded-2xl bg-slate-100 text-sm text-slate-400 sm:h-80">
+                <div className="flex h-96 items-center justify-center rounded-2xl bg-slate-100 text-sm text-slate-400 sm:h-[28rem]">
                   No river readings available.
                 </div>
               )}
             </div>
           </div>
         </section>
+        </div>
+      </main>
 
-        <section className="mt-16 rounded-3xl bg-white/90 px-5 py-6 shadow-sm ring-1 ring-white/60 backdrop-blur sm:px-8 sm:py-10">
-          <div className="mx-auto flex max-w-3xl flex-col gap-4 text-slate-700">
-            <h2 className="text-2xl font-semibold text-slate-900 sm:text-3xl">
-              Fly Fishing North Carolina
-            </h2>
-            <p className="text-base leading-relaxed text-slate-600 sm:text-lg">
-              North Carolina&apos;s blue lines offer year-round opportunities for fly
-              anglers chasing wild trout, while tailwaters like the Nantahala and
-              Tuckasegee deliver reliable flows even after summer thunderstorms. Use
-              the real-time weather and river insights above to plan your next drift,
-              choose the right flies for changing hatches, and stay safe when water
-              rises fast in the mountains. Whether you&apos;re hiking into remote
-              headwaters or stalking a stocked stretch after work, these conditions
-              help you decide when to wade, what gear to pack, and where the bite will
-              be hottest across the Tar Heel State.
+      {/* Footer */}
+      <footer className="border-t border-slate-800 bg-slate-900 px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-5xl">
+          <div className="flex flex-col items-center gap-2 text-center text-sm text-slate-400 sm:text-base">
+            <p className="max-w-2xl">
+              From floating on the Watauga to wading Big Snowbird creek, we aim to give you the information you are looking for fast.
             </p>
+            <div className="mt-2 flex flex-col items-center gap-1 sm:flex-row sm:gap-2">
+              <span>Developed by Search &amp; Be Found.</span>
+              <a
+                href="https://searchandbefound.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-emerald-400 transition hover:text-emerald-300"
+              >
+                What software can we build for you?
+              </a>
+            </div>
           </div>
-        </section>
-
-        <footer className="mt-12 flex flex-col items-center gap-2 pb-10 text-center text-sm text-slate-500 sm:text-base">
-          <span>Developed by Search &amp; Be Found.</span>
-          <a
-            href="https://searchandbefound.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-semibold text-sky-600 transition hover:text-sky-500"
-          >
-            What software can we build for you?
-          </a>
-        </footer>
-      </div>
-    </main>
+        </div>
+      </footer>
+    </div>
   );
 }
