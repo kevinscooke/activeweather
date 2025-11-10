@@ -1,0 +1,1520 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import type { ChartData, ChartOptions, TooltipItem } from "chart.js";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Filler,
+  TimeScale,
+} from "chart.js";
+import "chartjs-adapter-date-fns";
+import { Line } from "react-chartjs-2";
+import { fetchWeatherApi } from "openmeteo";
+import locations, { type WeatherLocation } from "./locations";
+
+const statCardIcons = {
+  windSpeed: (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      className="h-5 w-5 text-sky-500"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3 12h12.75a3.75 3.75 0 0 0 0-7.5h-.75M6 15h9.75a3.75 3.75 0 1 1 0 7.5H15"
+      />
+    </svg>
+  ),
+  humidity: (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      className="h-5 w-5 text-sky-500"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 3.75c-2.25 3-6.75 6.5-6.75 10.5a6.75 6.75 0 1 0 13.5 0c0-4-4.5-7.5-6.75-10.5Z"
+      />
+    </svg>
+  ),
+  temperature: (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      className="h-5 w-5 text-sky-500"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 21a3.5 3.5 0 0 0 3.5-3.5c0-1.15-.54-2.18-1.5-2.86V5a2 2 0 0 0-4 0v9.64c-.96.68-1.5 1.71-1.5 2.86A3.5 3.5 0 0 0 12 21Z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 12h3" />
+    </svg>
+  ),
+  windDirection: (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      className="h-5 w-5 text-sky-500"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 3v14.25m0-14.25L8.25 7M12 3l3.75 4M4.5 20.25h15"
+      />
+    </svg>
+  ),
+} as const;
+
+const locationCoordinates: Record<
+  (typeof locations)[number]["id"],
+  { latitude: number; longitude: number }
+> = {
+  "wilson-creek": { latitude: 35.9257, longitude: -81.6745 },
+  "ararat-river": { latitude: 36.404389, longitude: -80.561694 },
+  "big-horse-creek": { latitude: 36.503585, longitude: -81.514367 },
+  "big-laurel-creek": { latitude: 35.919826, longitude: -82.76153 },
+  "big-snowbird": { latitude: 35.311198, longitude: -83.859624 },
+  "cane-creek": { latitude: 36.014385, longitude: -82.131672 },
+  "cane-river": { latitude: 36.014556, longitude: -82.327631 },
+  "catawba-river": { latitude: 35.707346, longitude: -82.033165 },
+  "curtis-creek": { latitude: 35.63708, longitude: -82.157701 },
+  "davidson-river": { latitude: 35.3209, longitude: -82.6221 },
+  "east-fork-french-broad-river": {
+    latitude: 35.139042,
+    longitude: -82.805848,
+  },
+  "east-prong-roaring-river": { latitude: 36.381069, longitude: -81.06868 },
+  "elk-creek": { latitude: 36.071389, longitude: -81.403056 },
+  "elk-river": { latitude: 36.1707, longitude: -82.0187 },
+  "fires-creek": { latitude: 35.077032, longitude: -83.864067 },
+  "green-river": { latitude: 35.305671, longitude: -82.275115 },
+  "helton-creek": { latitude: 36.544028, longitude: -81.434043 },
+  "jacobs-fork": { latitude: 35.590556, longitude: -81.566944 },
+  "little-river": { latitude: 35.192339, longitude: -82.613457 },
+  "mill-creek": { latitude: 35.633176, longitude: -82.187059 },
+  "mitchell-river": { latitude: 36.311389, longitude: -80.807222 },
+  "nantahala-river": { latitude: 35.2137, longitude: -83.5596 },
+  "north-fork-mills-river": { latitude: 35.406503, longitude: -82.648847 },
+  "north-toe-river": { latitude: 35.899847, longitude: -82.030392 },
+  "reddies-river": { latitude: 36.175, longitude: -81.168889 },
+  "shelton-laurel-creek": { latitude: 35.931522, longitude: -82.735803 },
+  "south-fork-new-river": { latitude: 36.393333, longitude: -81.406944 },
+  "spring-creek": { latitude: 35.798714, longitude: -82.854308 },
+  "stone-mountain-creek": { latitude: 36.398459, longitude: -81.05172 },
+  "tuckasegee-river": { latitude: 35.3134, longitude: -83.1707 },
+  "watauga-river": { latitude: 36.239167, longitude: -81.822222 },
+  "west-fork-pigeon-river": { latitude: 35.426667, longitude: -82.919722 },
+};
+
+const riverGageSiteByLocation: Partial<
+  Record<(typeof locations)[number]["id"], string>
+> = {
+  "ararat-river": "02113850",
+  "wilson-creek": "02140510",
+  "davidson-river": "03441000",
+  "elk-creek": "02111180",
+  "jacobs-fork": "02143040",
+  "nantahala-river": "03505550",
+  "reddies-river": "02111500",
+  "south-fork-new-river": "03161000",
+  "tuckasegee-river": "03508050",
+  "watauga-river": "03479000",
+  "west-fork-pigeon-river": "0345577330",
+};
+
+export const LOCATION_PATH_SUFFIX = "-weather-river-gauge";
+const DEFAULT_LOCATION = locations[0] as WeatherLocation;
+
+const getLocationFromPathname = (pathname: string | null | undefined) => {
+  if (!pathname) return undefined;
+
+  const [firstSegment] = pathname.split("/").filter(Boolean);
+  if (!firstSegment || !firstSegment.endsWith(LOCATION_PATH_SUFFIX)) {
+    return undefined;
+  }
+
+  const locationId = firstSegment.slice(
+    0,
+    firstSegment.length - LOCATION_PATH_SUFFIX.length,
+  );
+
+  return locations.find((location) => location.id === locationId);
+};
+
+const buildLocationPathname = (locationId: WeatherLocation["id"]) =>
+  `/${locationId}${LOCATION_PATH_SUFFIX}`;
+
+const weatherCodeDescriptions: Record<number, string> = {
+  0: "Clear sky",
+  1: "Mainly clear",
+  2: "Partly cloudy",
+  3: "Overcast",
+  45: "Foggy",
+  48: "Rime fog",
+  51: "Light drizzle",
+  53: "Moderate drizzle",
+  55: "Dense drizzle",
+  56: "Freezing drizzle",
+  57: "Freezing drizzle",
+  61: "Light rain",
+  63: "Moderate rain",
+  65: "Heavy rain",
+  66: "Freezing rain",
+  67: "Heavy freezing rain",
+  71: "Light snow",
+  73: "Moderate snow",
+  75: "Heavy snow",
+  77: "Snow grains",
+  80: "Light rain showers",
+  81: "Moderate rain showers",
+  82: "Violent rain showers",
+  85: "Light snow showers",
+  86: "Heavy snow showers",
+  95: "Thunderstorm",
+  96: "Thunderstorm with hail",
+  99: "Heavy hail",
+};
+
+const msToMph = (value: number | null) =>
+  value == null ? null : value * 2.236936;
+const mmToInches = (value: number | null) =>
+  value == null ? null : value * 0.0393701;
+const celsiusToFahrenheit = (value: number | null) =>
+  value == null ? null : value * (9 / 5) + 32;
+
+const degreesToCardinal = (degrees: number | null) => {
+  if (degrees == null) return null;
+  const normalized = ((degrees % 360) + 360) % 360;
+  const directions = [
+    "N",
+    "NNE",
+    "NE",
+    "ENE",
+    "E",
+    "ESE",
+    "SE",
+    "SSE",
+    "S",
+    "SSW",
+    "SW",
+    "WSW",
+    "W",
+    "WNW",
+    "NW",
+    "NNW",
+  ];
+  const index = Math.round(normalized / 22.5) % 16;
+  return directions[index];
+};
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Filler,
+  TimeScale,
+);
+
+type WeatherSnapshot = {
+  temperatureF: number | null;
+  humidityPercent: number | null;
+  precipitationIn: number | null;
+  windSpeedMph: number | null;
+  windDirectionDegrees: number | null;
+  windDirectionCardinal: string | null;
+  weatherCode: number | null;
+  weatherDescription: string | null;
+  observationTime: Date | null;
+};
+
+type UpcomingDay = {
+  date: Date;
+  maxTempF: number | null;
+  minTempF: number | null;
+  weatherCode: number | null;
+  weatherDescription: string | null;
+};
+
+const CloudIcon = () => (
+  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-sky-100 text-sky-500 sm:h-12 sm:w-12 md:h-14 md:w-14">
+    <svg
+      viewBox="0 0 64 64"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      className="h-10 w-10"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M24 42h18a10 10 0 0 0 0-20h-1A14 14 0 1 0 24 42Z"
+      />
+    </svg>
+  </div>
+);
+
+const FlowGlyph = ({ className }: { className?: string }) => (
+  <svg
+    viewBox="0 0 28 12"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+  >
+    <path
+      d="M1 9c2-3 4-3 6 0s4 3 6 0 4-3 6 0 4 3 6 0"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+export default function WeatherPage() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const locationFromPath = useMemo(
+    () => getLocationFromPathname(pathname),
+    [pathname],
+  );
+  const [selectedLocation, setSelectedLocation] = useState<WeatherLocation>(
+    () => locationFromPath ?? DEFAULT_LOCATION,
+  );
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const menuRef = useRef<HTMLDivElement>(null);
+  const desktopSearchRef = useRef<HTMLInputElement>(null);
+  const mobileSearchRef = useRef<HTMLInputElement>(null);
+  const selectedCoordinates = locationCoordinates[selectedLocation.id];
+  const [weather, setWeather] = useState<WeatherSnapshot | null>(null);
+  const [isLoadingWeather, setIsLoadingWeather] = useState(false);
+  const [weatherError, setWeatherError] = useState<string | null>(null);
+  const [riverReadings, setRiverReadings] = useState<
+    { timestamp: Date; value: number }[]
+  >([]);
+  const [isLoadingRiver, setIsLoadingRiver] = useState(false);
+  const [riverError, setRiverError] = useState<string | null>(null);
+  const [upcomingForecast, setUpcomingForecast] = useState<UpcomingDay[]>([]);
+
+  const filteredLocations = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) return locations;
+    return locations.filter((location) =>
+      `${location.name} ${location.region}`.toLowerCase().includes(query),
+    );
+  }, [searchTerm]);
+
+  const groupedLocations = useMemo(() => {
+    const groups = new Map<string, typeof locations>();
+
+    for (const location of filteredLocations) {
+      const letter = location.name.charAt(0)?.toUpperCase() ?? "#";
+      const bucket = groups.get(letter);
+      if (bucket) {
+        bucket.push(location);
+      } else {
+        groups.set(letter, [location]);
+      }
+    }
+
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([letter, items]) => ({
+        letter,
+        items: items.slice().sort((a, b) => a.name.localeCompare(b.name)),
+      }));
+  }, [filteredLocations]);
+
+  const resultsCount = filteredLocations.length;
+
+  useEffect(() => {
+    const nextLocation = locationFromPath ?? DEFAULT_LOCATION;
+
+    setSelectedLocation((current) =>
+      current.id === nextLocation.id ? current : nextLocation,
+    );
+  }, [locationFromPath]);
+
+  useEffect(() => {
+    const siteId = riverGageSiteByLocation[selectedLocation.id];
+    let cancelled = false;
+    const controller = new AbortController();
+
+    if (!siteId) {
+      setRiverReadings([]);
+      setRiverError("River gauge data is unavailable for this location.");
+      return () => {
+        cancelled = true;
+        controller.abort();
+      };
+    }
+
+    const loadRiverData = async () => {
+      setIsLoadingRiver(true);
+      setRiverError(null);
+      try {
+        const url = new URL("https://waterservices.usgs.gov/nwis/iv/");
+        url.searchParams.set("format", "json");
+        url.searchParams.set("sites", siteId);
+        url.searchParams.set("parameterCd", "00065");
+        url.searchParams.set("period", "P7D");
+
+        const response = await fetch(url.toString(), {
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          throw new Error(`USGS request failed: ${response.statusText}`);
+        }
+        const json = await response.json();
+        const valueSeries =
+          json?.value?.timeSeries?.[0]?.values?.[0]?.value ?? [];
+
+        const parsedReadings: { timestamp: Date; value: number }[] = [];
+
+        for (const entry of valueSeries) {
+          const reading = Number.parseFloat(entry?.value);
+          const date = entry?.dateTime ? new Date(entry.dateTime) : null;
+          if (
+            Number.isFinite(reading) &&
+            date instanceof Date &&
+            !Number.isNaN(date.getTime())
+          ) {
+            parsedReadings.push({ value: reading, timestamp: date });
+          }
+        }
+
+        if (!cancelled) {
+          setRiverReadings(parsedReadings);
+          setIsLoadingRiver(false);
+        }
+      } catch (error) {
+        if (cancelled) return;
+        console.error("Failed to load river data", error);
+        setRiverReadings([]);
+        setRiverError(
+          error instanceof Error
+            ? error.message
+            : "Unable to fetch river data right now.",
+        );
+        setIsLoadingRiver(false);
+      }
+    };
+
+    loadRiverData();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [selectedLocation.id]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(event.target as Node)
+      ) {
+        setIsMenuOpen(false);
+        setSearchTerm("");
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsMenuOpen(false);
+        setSearchTerm("");
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isMenuOpen]);
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsMobileMenuOpen(false);
+        setSearchTerm("");
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isMobileMenuOpen]);
+
+  useEffect(() => {
+    if (isMenuOpen) {
+      const id = window.setTimeout(() => {
+        desktopSearchRef.current?.focus();
+      }, 50);
+      return () => window.clearTimeout(id);
+    }
+  }, [isMenuOpen]);
+
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      const id = window.setTimeout(() => {
+        mobileSearchRef.current?.focus();
+      }, 50);
+      return () => window.clearTimeout(id);
+    }
+  }, [isMobileMenuOpen]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadWeather = async () => {
+      setIsLoadingWeather(true);
+      setWeatherError(null);
+      setUpcomingForecast([]);
+      try {
+        const params = {
+          latitude: selectedCoordinates.latitude,
+          longitude: selectedCoordinates.longitude,
+          hourly: [
+            "temperature_2m",
+            "wind_speed_10m",
+            "wind_direction_10m",
+            "relative_humidity_2m",
+            "precipitation",
+            "weather_code",
+          ],
+          daily: ["temperature_2m_max", "temperature_2m_min", "weather_code"],
+          forecast_days: 4,
+          timezone: "auto",
+        } as const;
+
+        const responses = await fetchWeatherApi(
+          "https://api.open-meteo.com/v1/forecast",
+          params
+        );
+        const response = responses[0];
+        const hourly = response.hourly();
+        const daily = response.daily();
+        if (!hourly) {
+          throw new Error("No hourly weather data received.");
+        }
+
+        const temperatureValues = hourly.variables(0)?.valuesArray();
+        const windSpeedValues = hourly.variables(1)?.valuesArray();
+        const windDirectionValues = hourly.variables(2)?.valuesArray();
+        const humidityValues = hourly.variables(3)?.valuesArray();
+        const precipitationValues = hourly.variables(4)?.valuesArray();
+        const weatherCodeValues = hourly.variables(5)?.valuesArray();
+        const referenceLength = temperatureValues?.length ?? 0;
+
+        if (!referenceLength) {
+          throw new Error("Temperature data is unavailable for this location.");
+        }
+
+        const interval = hourly.interval();
+        const startTime = Number(hourly.time());
+        const utcOffsetSeconds = response.utcOffsetSeconds();
+
+        const nowUtcSeconds = Math.floor(Date.now() / 1000);
+        const modelSeconds = nowUtcSeconds - utcOffsetSeconds;
+        let index = Math.floor((modelSeconds - startTime) / interval);
+        if (Number.isNaN(index) || index < 0) index = 0;
+        if (index >= referenceLength) index = referenceLength - 1;
+
+        const pickValue = (values?: Float32Array | null) => {
+          if (!values || values.length === 0) return null;
+          if (index >= 0 && index < values.length) {
+            return values[index];
+          }
+          return values[values.length - 1];
+        };
+
+        const tempC = pickValue(temperatureValues);
+        const windSpeedMs = pickValue(windSpeedValues);
+        const windDirectionDeg = pickValue(windDirectionValues);
+        const humidityPercent = pickValue(humidityValues);
+        const precipitationMm = pickValue(precipitationValues);
+        const weatherCode = pickValue(weatherCodeValues);
+
+        const observationTimeSeconds =
+          startTime + index * interval + utcOffsetSeconds;
+
+        if (cancelled) return;
+
+        const windDirectionRounded =
+          windDirectionDeg == null ? null : Math.round(windDirectionDeg);
+        const weatherCodeRounded =
+          weatherCode == null ? null : Math.round(weatherCode);
+
+        setWeather({
+          temperatureF: celsiusToFahrenheit(tempC),
+          humidityPercent,
+          precipitationIn: mmToInches(precipitationMm),
+          windSpeedMph: msToMph(windSpeedMs),
+          windDirectionDegrees: windDirectionRounded,
+          windDirectionCardinal: degreesToCardinal(windDirectionDeg),
+          weatherCode: weatherCodeRounded,
+          weatherDescription:
+            weatherCodeRounded != null
+              ? weatherCodeDescriptions[weatherCodeRounded] ?? "Updated conditions"
+              : null,
+          observationTime: new Date(observationTimeSeconds * 1000),
+        });
+        if (daily) {
+          const dailyMaxValues = daily.variables(0)?.valuesArray();
+          const dailyMinValues = daily.variables(1)?.valuesArray();
+          const dailyWeatherCodes = daily.variables(2)?.valuesArray();
+          const dailyStartTime = Number(daily.time());
+          const dailyInterval = daily.interval();
+          const dailyLength =
+            dailyMaxValues?.length ??
+            dailyMinValues?.length ??
+            dailyWeatherCodes?.length ??
+            0;
+
+          if (Number.isFinite(dailyStartTime) && Number.isFinite(dailyInterval)) {
+            const upcomingDays: UpcomingDay[] = [];
+            for (let dayIndex = 1; dayIndex < Math.min(dailyLength, 4); dayIndex++) {
+              const maxC = dailyMaxValues?.[dayIndex] ?? null;
+              const minC = dailyMinValues?.[dayIndex] ?? null;
+              const weatherCodeValue = dailyWeatherCodes?.[dayIndex] ?? null;
+              const roundedCode =
+                weatherCodeValue == null ? null : Math.round(weatherCodeValue);
+              const description =
+                roundedCode != null
+                  ? weatherCodeDescriptions[roundedCode] ?? "Updated conditions"
+                  : null;
+              const dateSeconds =
+                dailyStartTime + dayIndex * dailyInterval + utcOffsetSeconds;
+              const date =
+                Number.isFinite(dateSeconds) && !Number.isNaN(dateSeconds)
+                  ? new Date(dateSeconds * 1000)
+                  : new Date();
+
+              upcomingDays.push({
+                date,
+                maxTempF: celsiusToFahrenheit(maxC),
+                minTempF: celsiusToFahrenheit(minC),
+                weatherCode: roundedCode,
+                weatherDescription: description,
+              });
+            }
+            setUpcomingForecast(upcomingDays);
+          }
+        }
+        setIsLoadingWeather(false);
+      } catch (error) {
+        if (cancelled) return;
+        console.error("Failed to load weather data", error);
+        setWeather(null);
+        setWeatherError(
+          error instanceof Error
+            ? error.message
+            : "Failed to load weather data."
+        );
+        setUpcomingForecast([]);
+        setIsLoadingWeather(false);
+      }
+    };
+
+    loadWeather();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCoordinates.latitude, selectedCoordinates.longitude]);
+
+  const temperatureDisplay = useMemo(() => {
+    if (weather?.temperatureF != null) {
+      return `${Math.round(weather.temperatureF)}°F`;
+    }
+    return isLoadingWeather ? "…" : "--";
+  }, [weather?.temperatureF, isLoadingWeather]);
+
+  const feelsLikeDisplay = useMemo(() => {
+    if (weather?.temperatureF != null) {
+      return `${Math.round(weather.temperatureF)}°F`;
+    }
+    return isLoadingWeather ? "…" : "--";
+  }, [weather?.temperatureF, isLoadingWeather]);
+
+  const conditionDisplay = useMemo(() => {
+    if (weather?.weatherDescription) {
+      return weather.weatherDescription;
+    }
+    if (isLoadingWeather) {
+      return "Fetching latest conditions…";
+    }
+    return "Conditions unavailable";
+  }, [weather?.weatherDescription, isLoadingWeather]);
+
+  const lastUpdated = useMemo(() => {
+    if (!weather?.observationTime) return null;
+    return weather.observationTime.toLocaleTimeString([], {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }, [weather?.observationTime]);
+
+  const metricsCards = useMemo(() => {
+    const fallbackValue = isLoadingWeather ? "…" : "--";
+    const fallbackSub = isLoadingWeather ? "Updating…" : "Unavailable";
+
+    const formattedWindSpeed =
+      weather?.windSpeedMph != null
+        ? `${Math.round(weather.windSpeedMph)} mph`
+        : fallbackValue;
+
+    const windDirectionLabel =
+      weather?.windDirectionCardinal ??
+      (weather?.windDirectionDegrees != null
+        ? `${weather.windDirectionDegrees}°`
+        : null);
+
+    const windDirectionSub =
+      weather?.windDirectionCardinal && weather?.windDirectionDegrees != null
+        ? `${weather.windDirectionCardinal} • ${weather.windDirectionDegrees}°`
+        : weather?.windDirectionDegrees != null
+        ? `${weather.windDirectionDegrees}°`
+        : fallbackSub;
+
+    const formattedHumidity =
+      weather?.humidityPercent != null
+        ? `${Math.round(weather.humidityPercent)}%`
+        : fallbackValue;
+
+    const formattedFeelsLike =
+      weather?.temperatureF != null
+        ? `${Math.round(weather.temperatureF)}°F`
+        : fallbackValue;
+
+    return [
+      {
+        key: "wind-speed",
+        label: "Wind Speed",
+        value: formattedWindSpeed,
+        sublabel: windDirectionLabel ?? fallbackSub,
+        icon: statCardIcons.windSpeed,
+      },
+      {
+        key: "wind-direction",
+        label: "Wind Direction",
+        value: windDirectionLabel ?? fallbackValue,
+        sublabel: windDirectionSub,
+        icon: statCardIcons.windDirection,
+      },
+      {
+        key: "humidity",
+        label: "Humidity",
+        value: formattedHumidity,
+        sublabel: "Relative",
+        icon: statCardIcons.humidity,
+      },
+      {
+        key: "feels-like",
+        label: "Feels Like",
+        value: formattedFeelsLike,
+        sublabel: weather?.weatherDescription ?? fallbackSub,
+        icon: statCardIcons.temperature,
+      },
+    ];
+  }, [
+    isLoadingWeather,
+    weather?.humidityPercent,
+    weather?.windDirectionCardinal,
+    weather?.windDirectionDegrees,
+    weather?.windSpeedMph,
+    weather?.weatherDescription,
+    weather?.temperatureF,
+  ]);
+
+  const upcomingDayFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat("en-US", {
+        weekday: "short",
+      }),
+    [],
+  );
+
+  const formatForecastTemp = (value: number | null) =>
+    value != null ? `${Math.round(value)}°` : "--";
+
+  const riverTickMonthDayFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York",
+        month: "short",
+        day: "numeric",
+      }),
+    [],
+  );
+
+  const riverTickDayFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York",
+        day: "numeric",
+      }),
+    [],
+  );
+
+  const riverTickPartsFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York",
+        month: "numeric",
+        day: "numeric",
+      }),
+    [],
+  );
+
+  const riverTooltipFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        timeZoneName: "short",
+      }),
+    [],
+  );
+
+  const latestRiverReading = useMemo(() => {
+    if (!riverReadings.length) return null;
+    const latest = riverReadings[riverReadings.length - 1];
+    return {
+      value: latest.value,
+      timestampLabel: riverTooltipFormatter.format(latest.timestamp),
+    };
+  }, [riverReadings, riverTooltipFormatter]);
+
+  const riverChartData = useMemo<ChartData<"line">>(
+    () => ({
+      datasets: [
+        {
+          type: "line",
+          label: "Gage height (ft)",
+          data: riverReadings.map((reading) => ({
+            x: reading.timestamp.getTime(),
+            y: reading.value,
+          })),
+          borderColor: "#0ea5e9",
+          backgroundColor: "rgba(56, 189, 248, 0.18)",
+          borderWidth: 2,
+          fill: true,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          pointHitRadius: 16,
+          tension: 0.25,
+        },
+      ],
+    }),
+    [riverReadings],
+  );
+
+  const riverChartOptions = useMemo<ChartOptions<"line">>(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        intersect: false,
+        mode: "nearest" as const,
+      },
+      scales: {
+        x: {
+          type: "time" as const,
+          ticks: {
+            maxRotation: 0,
+            color: "#475569",
+            callback: (value: string | number, index: number, ticks) => {
+              const numericValue =
+                typeof value === "number" ? value : Number(value);
+              if (!Number.isFinite(numericValue)) return "";
+              const currentDate = new Date(numericValue);
+
+              let showMonth = index === 0;
+              if (!showMonth && index > 0) {
+                const previousValue =
+                  typeof ticks[index - 1].value === "number"
+                    ? ticks[index - 1].value
+                    : Number(ticks[index - 1].value);
+                if (Number.isFinite(previousValue)) {
+                  const currentParts =
+                    riverTickPartsFormatter.formatToParts(currentDate);
+                  const previousParts = riverTickPartsFormatter.formatToParts(
+                    new Date(previousValue),
+                  );
+                  const currentMonth = currentParts.find(
+                    (part) => part.type === "month",
+                  )?.value;
+                  const previousMonth = previousParts.find(
+                    (part) => part.type === "month",
+                  )?.value;
+                  showMonth = currentMonth !== previousMonth;
+                }
+              }
+
+              return showMonth
+                ? riverTickMonthDayFormatter.format(currentDate)
+                : riverTickDayFormatter.format(currentDate);
+            },
+          },
+          grid: {
+            color: "rgba(148, 163, 184, 0.15)",
+          },
+          border: {
+            display: false,
+          },
+        },
+        y: {
+          title: {
+            display: true,
+            text: "ft",
+            color: "#475569",
+            font: {
+              size: 12,
+              weight: 500,
+            },
+          },
+          ticks: {
+            color: "#475569",
+            padding: 8,
+            callback: (value: string | number) => {
+              const numericValue =
+                typeof value === "number" ? value : Number(value);
+              return Number.isFinite(numericValue)
+                ? `${numericValue.toFixed(2)}`
+                : "";
+            },
+          },
+          grid: {
+            color: "rgba(148, 163, 184, 0.12)",
+          },
+        },
+      },
+      plugins: {
+        legend: {
+          display: false,
+        },
+        tooltip: {
+          displayColors: false,
+          callbacks: {
+            title: (items: TooltipItem<"line">[]) =>
+              items.length
+                ? riverTooltipFormatter.format(
+                    new Date(items[0].parsed.x as number),
+                  )
+                : "",
+            label: (item: TooltipItem<"line">) =>
+              `${item.parsed.y?.toFixed(2) ?? "--"} ft`,
+          },
+        },
+      },
+    }),
+    [
+      riverTickDayFormatter,
+      riverTickMonthDayFormatter,
+      riverTickPartsFormatter,
+      riverTooltipFormatter,
+    ],
+  );
+
+  const handleLocationSelect = useCallback(
+    (locationId: string) => {
+      const location = locations.find((loc) => loc.id === locationId);
+      if (!location) return;
+
+      setSelectedLocation((current) =>
+        current.id === location.id ? current : location,
+      );
+      setIsMenuOpen(false);
+      setIsMobileMenuOpen(false);
+      setSearchTerm("");
+
+      const nextPathname = buildLocationPathname(locationId);
+      if (pathname !== nextPathname) {
+        router.push(nextPathname, { scroll: false });
+      }
+    },
+    [pathname, router],
+  );
+
+  const handleDesktopToggle = () => {
+    if (isMenuOpen) {
+      setIsMenuOpen(false);
+      setSearchTerm("");
+    } else {
+      setSearchTerm("");
+      setIsMenuOpen(true);
+    }
+  };
+
+  const handleMobileOpen = () => {
+    setSearchTerm("");
+    setIsMobileMenuOpen(true);
+  };
+
+  const handleMenuClose = () => {
+    setIsMenuOpen(false);
+    setIsMobileMenuOpen(false);
+    setSearchTerm("");
+  };
+
+  return (
+    <main className="min-h-screen bg-linear-to-b from-sky-100 via-sky-50 to-white px-4 py-5 text-slate-900 sm:px-6 lg:px-8">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 sm:gap-8">
+        <header className="flex w-full flex-col gap-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-2xl font-semibold text-slate-900 sm:text-3xl">
+              Active Fly Fishing
+            </h2>
+            <div className="hidden items-center gap-3 sm:flex">
+              <div ref={menuRef} className="relative">
+                <button
+                  type="button"
+                  onClick={handleDesktopToggle}
+                  aria-haspopup="listbox"
+                  aria-expanded={isMenuOpen}
+                  className="flex items-center gap-3 rounded-full bg-white/85 px-4 py-2 text-sm font-medium text-slate-600 shadow-sm ring-1 ring-white/60 backdrop-blur transition hover:text-slate-900"
+                >
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-sky-100 text-sky-500">
+                    <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2a1 1 0 00.293.707l1.5 1.5a1 1 0 001.414-1.414L11 8.586V7z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </span>
+                  <span className="text-left leading-tight">
+                    <span className="block text-xs uppercase tracking-wide text-slate-400">
+                      {selectedLocation.name}
+                    </span>
+                    <span className="block text-sm font-semibold text-slate-700">
+                      {selectedLocation.region}
+                    </span>
+                  </span>
+                  <svg
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    className="h-4 w-4 text-slate-400"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M5.23 7.21a.75.75 0 011.06.02L10 11.108l3.71-3.877a.75.75 0 111.08 1.04l-4.25 4.45a.75.75 0 01-1.08 0l-4.25-4.45a.75.75 0 01.02-1.06z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </button>
+
+                {isMenuOpen ? (
+                  <div className="absolute right-0 top-full z-20 mt-3 w-md rounded-3xl bg-white/98 p-4 text-sm text-slate-600 shadow-2xl ring-1 ring-slate-100 backdrop-blur">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                          Select Location
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          {resultsCount} {resultsCount === 1 ? "option" : "options"}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleMenuClose}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                        aria-label="Close location menu"
+                      >
+                        <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+                          <path
+                            fillRule="evenodd"
+                            d="M10 8.586l4.243-4.243a1 1 0 111.414 1.414L11.414 10l4.243 4.243a1 1 0 01-1.414 1.414L10 11.414l-4.243 4.243a1 1 0 01-1.414-1.414L8.586 10 4.343 5.757a1 1 0 011.414-1.414L10 8.586z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+
+                    <div className="mt-3">
+                      <label htmlFor="desktop-location-search" className="sr-only">
+                        Search locations
+                      </label>
+                      <div className="relative">
+                        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-300">
+                          <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                            <path
+                              fillRule="evenodd"
+                              d="M12.9 14.32a7 7 0 111.414-1.414l3.147 3.146a1 1 0 01-1.414 1.415L12.9 14.32zM14 9a5 5 0 11-10 0 5 5 0 0110 0z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        </span>
+                        <input
+                          ref={desktopSearchRef}
+                          id="desktop-location-search"
+                          type="search"
+                          value={searchTerm}
+                          onChange={(event) => setSearchTerm(event.target.value)}
+                          placeholder="Search rivers or counties"
+                          className="w-full rounded-2xl border border-slate-200 bg-white/90 px-9 py-2 text-sm text-slate-600 shadow-inner focus:border-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-4 max-h-80 space-y-4 overflow-y-auto pr-1">
+                      {groupedLocations.length ? (
+                        groupedLocations.map((group) => (
+                          <div key={group.letter} className="space-y-2">
+                            <p className="px-1 text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                              {group.letter}
+                            </p>
+                            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                              {group.items.map((location) => {
+                                const isSelected = location.id === selectedLocation.id;
+                                const hasGauge = Boolean(
+                                  riverGageSiteByLocation[location.id],
+                                );
+                                return (
+                                  <button
+                                    key={location.id}
+                                    type="button"
+                                    onClick={() => handleLocationSelect(location.id)}
+                                    className={`flex w-full flex-col gap-2 rounded-2xl border px-3 py-3 text-left transition ${
+                                      isSelected
+                                        ? "border-sky-200 bg-sky-50/80 text-slate-900 shadow-sm"
+                                        : "border-transparent bg-white/85 text-slate-600 hover:border-slate-200 hover:bg-slate-50"
+                                    }`}
+                                  >
+                                    <span className="flex flex-col gap-1">
+                                      <span className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                                        {location.name}
+                                        {hasGauge ? (
+                                          <FlowGlyph className="h-3.5 w-6 text-sky-400" />
+                                        ) : null}
+                                      </span>
+                                      <span className="text-xs text-slate-400">
+                                        {location.region}
+                                      </span>
+                                    </span>
+                                    {isSelected ? (
+                                      <span className="inline-flex items-center gap-1 self-start rounded-full bg-sky-100/80 px-2 py-1 text-[0.65rem] font-medium uppercase tracking-[0.22em] text-sky-600">
+                                        <svg
+                                          viewBox="0 0 20 20"
+                                          fill="currentColor"
+                                          className="h-3 w-3"
+                                        >
+                                          <path
+                                            fillRule="evenodd"
+                                            d="M16.704 5.29a1 1 0 010 1.415l-7.07 7.07a1 1 0 01-1.415 0l-3.536-3.536a1 1 0 011.415-1.414L8.934 11.95l6.363-6.364a1 1 0 011.407-.296z"
+                                            clipRule="evenodd"
+                                          />
+                                        </svg>
+                                        Selected
+                                      </span>
+                                    ) : null}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-4 py-6 text-center text-sm text-slate-500">
+                          No locations match “{searchTerm}”.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1 sm:hidden">
+            <span className="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-slate-400">
+              Select Location
+            </span>
+            <button
+              type="button"
+              onClick={handleMobileOpen}
+              className="flex w-full items-center justify-between rounded-2xl bg-white/85 px-4 py-3 text-left text-sm font-medium text-slate-700 shadow-sm ring-1 ring-white/60 backdrop-blur transition focus:outline-none focus:ring-2 focus:ring-sky-300"
+              aria-haspopup="dialog"
+              aria-expanded={isMobileMenuOpen}
+            >
+              <span className="flex flex-col">
+                <span className="text-xs uppercase tracking-wide text-slate-400">
+                  {selectedLocation.region}
+                </span>
+                <span className="text-sm font-semibold text-slate-700">
+                  {selectedLocation.name}
+                </span>
+              </span>
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-sky-100 text-sky-500">
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                  <path
+                    fillRule="evenodd"
+                    d="M5.23 7.21a.75.75 0 011.06.02L10 11.108l3.71-3.877a.75.75 0 111.08 1.04l-4.25 4.45a.75.75 0 01-1.08 0l-4.25-4.45a.75.75 0 01.02-1.06z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </span>
+            </button>
+          </div>
+
+          {isMobileMenuOpen ? (
+            <>
+              <div
+                className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm"
+                onClick={handleMenuClose}
+                aria-hidden="true"
+              />
+              <div className="fixed inset-0 z-50 flex flex-col bg-white">
+                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+                      Select Location
+                    </p>
+                    <p className="text-sm text-slate-500">
+                      {resultsCount} {resultsCount === 1 ? "option" : "options"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleMenuClose}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                    aria-label="Close location picker"
+                  >
+                    <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+                      <path
+                        fillRule="evenodd"
+                        d="M10 8.586l4.243-4.243a1 1 0 111.414 1.414L11.414 10l4.243 4.243a1 1 0 01-1.414 1.414L10 11.414l-4.243 4.243a1 1 0 01-1.414-1.414L8.586 10 4.343 5.757a1 1 0 011.414-1.414L10 8.586z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </button>
+                </div>
+                <div className="px-4 py-3">
+                  <label htmlFor="mobile-location-search" className="sr-only">
+                    Search locations
+                  </label>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-300">
+                      <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                        <path
+                          fillRule="evenodd"
+                          d="M12.9 14.32a7 7 0 111.414-1.414l3.147 3.146a1 1 0 01-1.414 1.415L12.9 14.32zM14 9a5 5 0 11-10 0 5 5 0 0110 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </span>
+                    <input
+                      ref={mobileSearchRef}
+                      id="mobile-location-search"
+                      type="search"
+                      value={searchTerm}
+                      onChange={(event) => setSearchTerm(event.target.value)}
+                      placeholder="Search rivers or counties"
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-10 py-3 text-sm text-slate-600 shadow-inner focus:border-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-1 flex-col overflow-y-auto px-4 pb-6">
+                  {groupedLocations.length ? (
+                    groupedLocations.map((group) => (
+                      <div key={group.letter} className="space-y-2 py-2">
+                        <p className="px-1 text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                          {group.letter}
+                        </p>
+                        <div className="flex flex-col gap-2">
+                          {group.items.map((location) => {
+                            const isSelected = location.id === selectedLocation.id;
+                            const hasGauge = Boolean(
+                              riverGageSiteByLocation[location.id],
+                            );
+                            return (
+                              <button
+                                key={location.id}
+                                type="button"
+                                onClick={() => handleLocationSelect(location.id)}
+                                className={`flex flex-col gap-2 rounded-2xl border px-3 py-3 text-left text-sm transition ${
+                                  isSelected
+                                    ? "border-sky-200 bg-sky-50/80 text-slate-900 shadow-sm"
+                                    : "border-slate-100 bg-white text-slate-600 hover:border-slate-200 hover:bg-slate-50"
+                                }`}
+                              >
+                                <span className="flex flex-col gap-1">
+                                  <span className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                                    {location.name}
+                                    {hasGauge ? (
+                                      <FlowGlyph className="h-3.5 w-6 text-sky-400" />
+                                    ) : null}
+                                  </span>
+                                  <span className="text-xs text-slate-400">
+                                    {location.region}
+                                  </span>
+                                </span>
+                                {isSelected ? (
+                                  <span className="inline-flex items-center gap-1 self-start rounded-full bg-sky-100/80 px-2 py-1 text-[0.65rem] font-medium uppercase tracking-[0.22em] text-sky-600">
+                                    <svg
+                                      viewBox="0 0 20 20"
+                                      fill="currentColor"
+                                      className="h-3 w-3"
+                                    >
+                                      <path
+                                        fillRule="evenodd"
+                                        d="M16.704 5.29a1 1 0 010 1.415l-7.07 7.07a1 1 0 01-1.415 0l-3.536-3.536a1 1 0 011.415-1.414L8.934 11.95l6.363-6.364a1 1 0 011.407-.296z"
+                                        clipRule="evenodd"
+                                      />
+                                    </svg>
+                                    Selected
+                                  </span>
+                                ) : null}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-4 py-6 text-center text-sm text-slate-500">
+                      No locations match “{searchTerm}”.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          ) : null}
+        </header>
+
+        <h1 className="text-3xl font-semibold text-slate-900 sm:text-4xl">
+          {selectedLocation.name}
+        </h1>
+
+        <p className="max-w-3xl text-sm text-slate-600 sm:text-base">
+          {selectedLocation.description}
+        </p>
+
+        <section className="grid gap-5 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)] lg:gap-7">
+          <div className="flex flex-col gap-4 sm:gap-5">
+            <div className="rounded-3xl bg-white/90 px-5 py-5 shadow-sm ring-1 ring-white/60 backdrop-blur sm:px-6 sm:py-6">
+              <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
+                <div className="flex flex-1 flex-col gap-2">
+                  <div className="flex items-start justify-between">
+                    <div className="flex flex-col gap-2">
+                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+                        Current Temperature
+                      </p>
+                      <p className="text-4xl font-semibold text-slate-900 sm:text-5xl">
+                        {temperatureDisplay}
+                      </p>
+                      <p className="text-sm font-medium text-slate-600 sm:text-base">
+                        {conditionDisplay}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Feels like {feelsLikeDisplay}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 sm:hidden">
+                      <CloudIcon />
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1 text-xs text-slate-400">
+                    {lastUpdated ? <p>Updated {lastUpdated}</p> : null}
+                    {weatherError ? (
+                      <p className="text-rose-500">{weatherError}</p>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="flex flex-1 flex-col gap-3 rounded-2xl border border-slate-100/80 bg-slate-50/80 p-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+                      Next 3 Days
+                    </h2>
+                    {isLoadingWeather ? (
+                      <span className="text-xs text-slate-400">Updating…</span>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    {upcomingForecast.length ? (
+                      upcomingForecast.slice(0, 3).map((day) => (
+                        <div
+                          key={day.date.toISOString()}
+                          className="flex items-start justify-between gap-4 rounded-xl bg-white/80 px-3 py-2 text-slate-600 shadow-sm ring-1 ring-white/60"
+                        >
+                          <div className="flex flex-col">
+                            <span className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                              {upcomingDayFormatter.format(day.date)}
+                            </span>
+                            <span className="text-xs text-slate-400">
+                              {day.weatherDescription ??
+                                (isLoadingWeather
+                                  ? "Updating…"
+                                  : "Forecast unavailable")}
+                            </span>
+                          </div>
+                          <span className="text-sm font-semibold text-slate-900 sm:text-base">
+                            {formatForecastTemp(day.maxTempF)} /{" "}
+                            {formatForecastTemp(day.minTempF)}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-slate-200 bg-white/70 px-3 py-4 text-xs text-slate-400">
+                        Forecast data loading…
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-3xl bg-white/85 px-5 py-4 shadow-sm ring-1 ring-white/60 backdrop-blur sm:px-6 sm:py-5">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">
+                  Conditions At A Glance
+                </h2>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4">
+                {metricsCards.map((card) => (
+                  <div
+                    key={card.key}
+                    className="flex h-full flex-col justify-between rounded-2xl border border-slate-100/80 bg-slate-50/80 p-3 text-slate-600 sm:p-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="rounded-xl bg-sky-50 p-2 text-sky-500 sm:p-2.5">
+                        {card.icon}
+                      </span>
+                      <div className="flex flex-col">
+                        <span className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                          {card.label}
+                        </span>
+                        <span className="text-lg font-semibold text-slate-900">
+                          {card.value}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="mt-2 text-xs text-slate-400">
+                      {card.sublabel}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </div>
+
+          <div className="rounded-3xl bg-white/90 px-5 py-5 shadow-sm ring-1 ring-white/60 backdrop-blur sm:px-6 sm:py-6 lg:self-start">
+            <div className="flex flex-col gap-2 text-slate-700">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    className="h-5 w-5 text-sky-500 md:h-6 md:w-6"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M3 14s2.5-4 6-4 6 4 10 4 5-4 5-4"
+                    />
+                  </svg>
+                  <h2 className="text-lg font-semibold">River Flow Data</h2>
+                </div>
+                {latestRiverReading ? (
+                  <div className="text-left text-xs text-slate-400 sm:text-right">
+                    <p className="text-[0.65rem] uppercase tracking-[0.18em]">
+                      Latest Reading
+                    </p>
+                    <p className="text-base font-semibold text-slate-900">
+                      {latestRiverReading.value.toFixed(2)} ft
+                    </p>
+                    <p>{latestRiverReading.timestampLabel}</p>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div className="mt-4">
+              {isLoadingRiver ? (
+                <div className="flex h-72 items-center justify-center rounded-2xl bg-slate-100 text-sm text-slate-400 sm:h-80">
+                  Loading gage height…
+                </div>
+              ) : riverError ? (
+                <div className="flex h-72 items-center justify-center rounded-2xl bg-slate-100 text-sm text-rose-500 sm:h-80">
+                  {riverError}
+                </div>
+              ) : riverReadings.length ? (
+                <div className="h-72 w-full sm:h-80">
+                  <Line options={riverChartOptions} data={riverChartData} />
+                </div>
+              ) : (
+                <div className="flex h-72 items-center justify-center rounded-2xl bg-slate-100 text-sm text-slate-400 sm:h-80">
+                  No river readings available.
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-16 rounded-3xl bg-white/90 px-5 py-6 shadow-sm ring-1 ring-white/60 backdrop-blur sm:px-8 sm:py-10">
+          <div className="mx-auto flex max-w-3xl flex-col gap-4 text-slate-700">
+            <h2 className="text-2xl font-semibold text-slate-900 sm:text-3xl">
+              Fly Fishing North Carolina
+            </h2>
+            <p className="text-base leading-relaxed text-slate-600 sm:text-lg">
+              North Carolina&apos;s blue lines offer year-round opportunities for fly
+              anglers chasing wild trout, while tailwaters like the Nantahala and
+              Tuckasegee deliver reliable flows even after summer thunderstorms. Use
+              the real-time weather and river insights above to plan your next drift,
+              choose the right flies for changing hatches, and stay safe when water
+              rises fast in the mountains. Whether you&apos;re hiking into remote
+              headwaters or stalking a stocked stretch after work, these conditions
+              help you decide when to wade, what gear to pack, and where the bite will
+              be hottest across the Tar Heel State.
+            </p>
+          </div>
+        </section>
+
+        <footer className="mt-12 flex flex-col items-center gap-2 pb-10 text-center text-sm text-slate-500 sm:text-base">
+          <span>Developed by Search &amp; Be Found.</span>
+          <a
+            href="https://searchandbefound.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-sky-600 transition hover:text-sky-500"
+          >
+            What software can we build for you?
+          </a>
+        </footer>
+      </div>
+    </main>
+  );
+}

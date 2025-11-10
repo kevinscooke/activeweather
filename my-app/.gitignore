@@ -1,0 +1,8 @@
+node_modules/
+.pnpm-store/
+.next/
+.vercel/
+.env*
+my-app/node_modules/
+my-app/.next/
+my-app/.pnpm-store/
