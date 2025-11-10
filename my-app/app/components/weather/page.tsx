@@ -818,8 +818,8 @@ export default function WeatherPage() {
     };
   }, [riverReadings, riverTooltipFormatter]);
 
-  const riverChartData = useMemo<ChartData<"line">>(
-    () => ({
+  const riverChartData = useMemo<ChartData<"line">>(() => {
+    return {
       datasets: [
         {
           type: "line",
@@ -829,18 +829,35 @@ export default function WeatherPage() {
             y: reading.value,
           })),
           borderColor: "#0ea5e9",
-          backgroundColor: "rgba(56, 189, 248, 0.18)",
-          borderWidth: 2,
+          backgroundColor: (context: { chart: { ctx: CanvasRenderingContext2D; chartArea?: { top: number; bottom: number } } }) => {
+            const ctx = context.chart.ctx;
+            const chartArea = context.chart.chartArea;
+            
+            if (!chartArea) {
+              return "rgba(14, 165, 233, 0.15)";
+            }
+            
+            const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+            gradient.addColorStop(0, "rgba(14, 165, 233, 0.4)");
+            gradient.addColorStop(0.5, "rgba(14, 165, 233, 0.15)");
+            gradient.addColorStop(1, "rgba(14, 165, 233, 0.02)");
+            return gradient;
+          },
+          borderWidth: 3,
+          borderCapStyle: "round" as const,
+          borderJoinStyle: "round" as const,
           fill: true,
           pointRadius: 0,
-          pointHoverRadius: 4,
-          pointHitRadius: 16,
-          tension: 0.25,
+          pointHoverRadius: 6,
+          pointHoverBorderWidth: 3,
+          pointHoverBackgroundColor: "#ffffff",
+          pointHoverBorderColor: "#0ea5e9",
+          pointHitRadius: 20,
+          tension: 0.4,
         },
       ],
-    }),
-    [riverReadings],
-  );
+    };
+  }, [riverReadings]);
 
   const riverChartOptions = useMemo<ChartOptions<"line">>(
     () => ({
@@ -855,7 +872,12 @@ export default function WeatherPage() {
           type: "time" as const,
           ticks: {
             maxRotation: 0,
-            color: "#475569",
+            color: "#64748b",
+            font: {
+              size: 11,
+              weight: 500,
+            },
+            padding: 12,
             callback: (value: string | number, index: number, ticks) => {
               const numericValue =
                 typeof value === "number" ? value : Number(value);
@@ -890,7 +912,9 @@ export default function WeatherPage() {
             },
           },
           grid: {
-            color: "rgba(148, 163, 184, 0.15)",
+            color: "rgba(148, 163, 184, 0.08)",
+            drawBorder: false,
+            lineWidth: 1,
           },
           border: {
             display: false,
@@ -899,16 +923,24 @@ export default function WeatherPage() {
         y: {
           title: {
             display: true,
-            text: "ft",
-            color: "#475569",
+            text: "Height (ft)",
+            color: "#64748b",
             font: {
-              size: 12,
-              weight: 500,
+              size: 11,
+              weight: 600,
+            },
+            padding: {
+              top: 0,
+              bottom: 8,
             },
           },
           ticks: {
-            color: "#475569",
-            padding: 8,
+            color: "#64748b",
+            padding: 10,
+            font: {
+              size: 11,
+              weight: 500,
+            },
             callback: (value: string | number) => {
               const numericValue =
                 typeof value === "number" ? value : Number(value);
@@ -918,7 +950,12 @@ export default function WeatherPage() {
             },
           },
           grid: {
-            color: "rgba(148, 163, 184, 0.12)",
+            color: "rgba(148, 163, 184, 0.08)",
+            drawBorder: false,
+            lineWidth: 1,
+          },
+          border: {
+            display: false,
           },
         },
       },
@@ -928,6 +965,23 @@ export default function WeatherPage() {
         },
         tooltip: {
           displayColors: false,
+          backgroundColor: "rgba(15, 23, 42, 0.95)",
+          titleColor: "#e2e8f0",
+          bodyColor: "#ffffff",
+          borderColor: "rgba(148, 163, 184, 0.2)",
+          borderWidth: 1,
+          padding: 12,
+          titleFont: {
+            size: 12,
+            weight: 500,
+          },
+          bodyFont: {
+            size: 14,
+            weight: 600,
+          },
+          cornerRadius: 8,
+          boxPadding: 6,
+          usePointStyle: false,
           callbacks: {
             title: (items: TooltipItem<"line">[]) =>
               items.length
@@ -938,6 +992,16 @@ export default function WeatherPage() {
             label: (item: TooltipItem<"line">) =>
               `${item.parsed.y?.toFixed(2) ?? "--"} ft`,
           },
+        },
+      },
+      animation: {
+        duration: 1000,
+        easing: "easeInOutQuart" as const,
+      },
+      elements: {
+        point: {
+          hoverRadius: 6,
+          hoverBorderWidth: 3,
         },
       },
     }),
@@ -1167,7 +1231,7 @@ export default function WeatherPage() {
                   {riverError}
                 </div>
               ) : riverReadings.length ? (
-                <div className="h-96 w-full sm:h-[28rem]">
+                <div className="h-96 w-full sm:h-[28rem] rounded-xl overflow-hidden bg-gradient-to-br from-white via-white to-slate-50/30 shadow-inner">
                   <Line options={riverChartOptions} data={riverChartData} />
                 </div>
               ) : (
