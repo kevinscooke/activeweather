@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Icon Generator</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      padding: 40px;
+      font-family: system-ui, sans-serif;
+    }
+    canvas {
+      border: 1px solid #ccc;
+      background: white;
+    }
+    button {
+      padding: 10px 20px;
+      background: #0ea5e9;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover {
+      background: #0284c7;
+    }
+  </style>
+</head>
+<body>
+  <h1>Fly Icon PNG Generator</h1>
+  <p>Right-click the canvas below and "Save image as..." to download PNG</p>
+  
+  <canvas id="iconCanvas" width="512" height="512"></canvas>
+  
+  <div>
+    <button onclick="downloadIcon(512, 'fly-icon.png')">Download 512x512 (fly-icon.png)</button>
+    <button onclick="downloadIcon(180, 'apple-touch-icon.png')">Download 180x180 (apple-touch-icon.png)</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('iconCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    function drawIcon(size) {
+      canvas.width = size;
+      canvas.height = size;
+      ctx.clearRect(0, 0, size, size);
+      
+      const scale = size / 100;
+      ctx.scale(scale, scale);
+      
+      // Background circle
+      ctx.fillStyle = 'rgba(14, 165, 233, 0.1)';
+      ctx.beginPath();
+      ctx.arc(50, 50, 48, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Hook
+      ctx.strokeStyle = '#0ea5e9';
+      ctx.lineWidth = 3.5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(50, 15);
+      ctx.quadraticCurveTo(42, 25, 40, 45);
+      ctx.quadraticCurveTo(38, 65, 45, 75);
+      ctx.quadraticCurveTo(50, 80, 55, 75);
+      ctx.stroke();
+      
+      ctx.beginPath();
+      ctx.moveTo(55, 75);
+      ctx.lineTo(60, 80);
+      ctx.stroke();
+      
+      // Body
+      ctx.fillStyle = '#0ea5e9';
+      ctx.beginPath();
+      ctx.ellipse(50, 45, 10, 15, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Wings
+      ctx.fillStyle = 'rgba(20, 184, 166, 0.7)';
+      ctx.beginPath();
+      ctx.moveTo(40, 40);
+      ctx.quadraticCurveTo(30, 35, 25, 40);
+      ctx.quadraticCurveTo(30, 45, 40, 40);
+      ctx.fill();
+      
+      ctx.beginPath();
+      ctx.moveTo(60, 40);
+      ctx.quadraticCurveTo(70, 35, 75, 40);
+      ctx.quadraticCurveTo(70, 45, 60, 40);
+      ctx.fill();
+      
+      // Tail
+      ctx.strokeStyle = '#0ea5e9';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(50, 60);
+      ctx.quadraticCurveTo(45, 65, 38, 70);
+      ctx.stroke();
+      
+      ctx.beginPath();
+      ctx.moveTo(50, 60);
+      ctx.quadraticCurveTo(50, 65, 48, 70);
+      ctx.stroke();
+      
+      ctx.beginPath();
+      ctx.moveTo(50, 60);
+      ctx.quadraticCurveTo(55, 65, 62, 70);
+      ctx.stroke();
+      
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+    }
+    
+    function downloadIcon(size, filename) {
+      drawIcon(size);
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+    
+    // Draw initial icon
+    drawIcon(512);
+  </script>
+</body>
+</html>
+
