@@ -1265,15 +1265,17 @@ export default function WeatherPage() {
             </Link> */}
           </div>
 
-          <div className="flex flex-col items-center gap-2 sm:hidden">
-            <p className="text-xs font-medium text-slate-500">Powered by:</p>
-            <div className="relative h-8 w-24">
-              <Image
-                src="https://ik.imagekit.io/gfi2amo6o/Jesse-Brown-s-Logo-White-e1730748119626.png"
-                alt="Jesse Brown's Charlotte, NC"
-                fill
-                className="object-contain"
-              />
+          <div className="w-full bg-slate-800 px-4 py-4 sm:hidden">
+            <div className="flex flex-col items-center gap-2">
+              <p className="text-xs font-medium text-slate-300">Powered by:</p>
+              <div className="relative h-12 w-40">
+                <Image
+                  src="https://ik.imagekit.io/gfi2amo6o/Jesse-Brown-s-Logo-White-e1730748119626.png"
+                  alt="Jesse Brown's Charlotte, NC"
+                  fill
+                  className="object-contain"
+                />
+              </div>
             </div>
           </div>
 

@@ -255,7 +255,7 @@ export default function Header({ selectedLocation: propSelectedLocation }: Heade
                     <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
                       <path
                         fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2a1 1 0 00.293.707l1.5 1.5a1 1 0 001.414-1.414L11 8.586V7z"
+                        d="M9.69 18.933a.75.75 0 01-1.38 0C5.833 15.596 2 12.177 2 8.5 2 4.916 4.916 2 8.5 2S15 4.916 15 8.5c0 3.677-3.833 7.096-6.31 10.433zM8.5 4.75a3.75 3.75 0 100 7.5 3.75 3.75 0 000-7.5z"
                         clipRule="evenodd"
                       />
                     </svg>
@@ -558,7 +558,7 @@ export default function Header({ selectedLocation: propSelectedLocation }: Heade
                     <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
                       <path
                         fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2a1 1 0 00.293.707l1.5 1.5a1 1 0 001.414-1.414L11 8.586V7z"
+                        d="M9.69 18.933a.75.75 0 01-1.38 0C5.833 15.596 2 12.177 2 8.5 2 4.916 4.916 2 8.5 2S15 4.916 15 8.5c0 3.677-3.833 7.096-6.31 10.433zM8.5 4.75a3.75 3.75 0 100 7.5 3.75 3.75 0 000-7.5z"
                         clipRule="evenodd"
                       />
                     </svg>

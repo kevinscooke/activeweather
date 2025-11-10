@@ -16,11 +16,6 @@ export const metadata: Metadata = {
   title: "North Carolina Fly Fishing Weather Dashboard | Search & Be Found",
   description: "Live weather, river flows, and hatch insights for fly fishing North Carolina. Plan every angling session with real-time forecasts tailored to trout streams statewide.",
   manifest: "/site.webmanifest",
-  icons: {
-    icon: "/icon.svg",
-    shortcut: "/icon.svg",
-    apple: "/icon.svg",
-  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",

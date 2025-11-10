@@ -1,24 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
-  <!-- Wings/Hackle - large fan-like spiky structure on the left (head) -->
-  <path d="M15 50 Q18 25 25 30 Q22 35 20 40 Q18 45 20 50 Q18 55 20 60 Q22 65 25 70 Q18 75 15 50 Z" 
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="#000000">
+  <!-- Body - elongated oval/torpedo shape, horizontal -->
+  <ellipse cx="45" cy="50" rx="22" ry="9" fill="#000000"/>
+  
+  <!-- Wings - prominent spiky/feathery texture extending upward from front -->
+  <path d="M23 50 L18 25 L15 30 L20 35 Z" fill="#000000"/>
+  <path d="M23 50 L18 20 L15 25 L20 30 Z" fill="#000000"/>
+  <path d="M23 50 L18 15 L15 20 L20 25 Z" fill="#000000"/>
+  <path d="M25 50 L20 30 L17 35 L22 40 Z" fill="#000000"/>
+  <path d="M25 50 L20 25 L17 30 L22 35 Z" fill="#000000"/>
+  <path d="M25 50 L20 20 L17 25 L22 30 Z" fill="#000000"/>
+  
+  <!-- Tail - bifurcated two-pronged tail extending backward -->
+  <path d="M67 50 L92 42 L92 50 Z" fill="#000000"/>
+  <path d="M67 50 L92 58 L92 50 Z" fill="#000000"/>
+  
+  <!-- Hook - curved hook extending downward then forward -->
+  <path d="M45 59 Q47 72 43 82 Q40 88 34 85 Q31 80 35 73 Q39 65 45 59" 
         fill="#000000"/>
-  <!-- Additional spikes for texture -->
-  <path d="M18 35 Q20 28 23 30 Q21 33 19 36" fill="#000000"/>
-  <path d="M18 45 Q20 38 23 40 Q21 43 19 46" fill="#000000"/>
-  <path d="M18 55 Q20 48 23 50 Q21 53 19 56" fill="#000000"/>
-  <path d="M18 65 Q20 58 23 60 Q21 63 19 66" fill="#000000"/>
-  
-  <!-- Body - sleek elongated tapered shape -->
-  <ellipse cx="52" cy="50" rx="18" ry="7" fill="#000000"/>
-  <path d="M34 50 Q38 48 42 50 Q46 52 50 50 Q54 52 58 50 Q62 52 66 50 Q70 52 70 50" fill="#000000"/>
-  
-  <!-- Split Tail - V-shaped, two sharp prongs extending right -->
-  <path d="M70 50 L88 42 L88 50 L70 50 Z" fill="#000000"/>
-  <path d="M70 50 L88 58 L88 50 L70 50 Z" fill="#000000"/>
-  
-  <!-- Hook - J-shaped, integrated beneath body, curves down then up -->
-  <path d="M52 57 Q55 65 53 75 Q51 82 45 80 Q40 77 42 72 Q43 67 52 57" 
-        fill="#000000"/>
-  <!-- Hook point/barb -->
-  <path d="M45 80 L40 85 L42 83 Z" fill="#000000"/>
+  <path d="M34 85 L28 92 L31 90 Z" fill="#000000"/>
 </svg>

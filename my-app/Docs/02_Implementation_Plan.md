@@ -76,10 +76,10 @@
 - [ ] **AI Task**: Add Dataset schema for each river's USGS data
 - [ ] **AI Task**: Include JSON-LD snippets in page templates
 
-**1.8 Metadata & social cards**
-- [ ] **AI Task**: Generate unique `<title>` per river page: "{River Name} Flow, Water Temp & Fishing Conditions ({City}, NC)"
-- [ ] **AI Task**: Create unique meta descriptions per page with specific river name and location
-- [ ] **AI Task**: Add OpenGraph/Twitter cards with river name + state + "flow/temperature"
+**1.8 Metadata & social cards** ✅
+- [x] **AI Task**: Generate unique `<title>` per river page: "{River Name} Flow, Water Temp & Fishing Conditions ({City}, NC)"
+- [x] **AI Task**: Create unique meta descriptions per page with specific river name and location
+- [x] **AI Task**: Add OpenGraph/Twitter cards with river name + state + "flow/temperature"
 - **SEO Strategy Note**: Individual river pages must include specific river names in titles, descriptions, and content. Homepage focuses on general NC keywords.
 
 **1.9 Internal linking system**
