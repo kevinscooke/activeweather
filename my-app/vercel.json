@@ -6,7 +6,7 @@
     },
     {
       "source": "/trout",
-      "destination": "https://activeweather-ha2v.vercel.app/trout/"
+      "destination": "https://activeweather-ha2v.vercel.app/trout"
     }
   ]
 }
