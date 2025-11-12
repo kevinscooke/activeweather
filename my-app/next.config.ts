@@ -16,7 +16,11 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/trout/:path*",
-        destination: `${apexAppUrl}/trout/:path*`,
+        destination: `${apexAppUrl}/:path*`,
+      },
+      {
+        source: "/trout",
+        destination: `${apexAppUrl}/`,
       },
     ];
   },
