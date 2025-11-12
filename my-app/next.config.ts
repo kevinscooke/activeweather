@@ -11,10 +11,12 @@ const nextConfig: NextConfig = {
     ],
   },
   async rewrites() {
+    const apexAppUrl =
+      process.env.APEX_APP_URL || "https://activeweather-ha2v.vercel.app";
     return [
       {
         source: "/trout/:path*",
-        destination: "https://activeweather-ha2v.vercel.app/trout/:path*",
+        destination: `${apexAppUrl}/trout/:path*`,
       },
     ];
   },
