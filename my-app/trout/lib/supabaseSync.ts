@@ -13,7 +13,7 @@ export async function saveToSupabase(data: ChecklistData, userId: string): Promi
     }
 
     // Upsert checklist - update existing or create new
-    let checklistId = data.id;
+    let checklistId: string | null = data.id || null;
 
     if (checklistId) {
       // Update existing checklist
