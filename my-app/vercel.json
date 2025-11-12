@@ -1,0 +1,13 @@
+{
+  "rewrites": [
+    {
+      "source": "/trout/:path*",
+      "destination": "https://activeweather-ha2v.vercel.app/trout/:path*"
+    },
+    {
+      "source": "/trout",
+      "destination": "https://activeweather-ha2v.vercel.app/trout"
+    }
+  ]
+}
+
